@@ -69,28 +69,24 @@ export default function EurocookTool() {
     const ti = TONES.find((t) => t.id === tone);
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      // Gọi qua /api/generate (Vercel serverless) — API key bảo vệ server-side
+      const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `Bạn là chuyên gia marketing cho Eurocook — nhà phân phối thiết bị nhà bếp cao cấp châu Âu tại Việt Nam. Phân phối: BOSCH, Siemens, Miele, V-Zug, Gaggenau, Liebherr. Target: gia đình thu nhập cao, kiến trúc sư, designer.
-Trả về JSON hợp lệ duy nhất, không có markdown hay backticks:
-{"headline":"<dưới 15 chữ, gây tò mò>","body":"<150-250 chữ tiếng Việt cuốn hút>","cta":"<call-to-action mạnh>","hashtags":["#tag",...],"emoji_hook":"<2-3 emoji phù hợp>","best_time":"<gợi ý khung giờ đăng tốt nhất>"}`,
-          messages: [{
-            role: "user",
-            content: `Thương hiệu: ${bi.name} (${bi.tagline})\nLoại bài: ${pi.label}\nGiọng điệu: ${ti.label}\n${topic ? `Chủ đề cụ thể: ${topic}` : ""}\nTạo bài đăng Facebook cho fanpage Eurocook Vietnam.`,
-          }],
+          brandName: bi.name,
+          brandTagline: bi.tagline,
+          postTypeLabel: pi.label,
+          toneLabel: ti.label,
+          topic: topic || "",
         }),
       });
 
-      const data = await res.json();
-      const text = data.content?.map((i) => i.text || "").join("") || "";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const parsed = await res.json();
+      if (!res.ok) throw new Error(parsed.error || "Lỗi server");
       setGeneratedPost({ ...parsed, brand: selectedBrand, postType, timestamp: new Date() });
-    } catch {
-      setGenError("Lỗi khi tạo bài. Vui lòng thử lại.");
+    } catch (err) {
+      setGenError(err.message || "Lỗi khi tạo bài. Vui lòng thử lại.");
     } finally {
       setGenerating(false);
     }
