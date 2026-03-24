@@ -237,13 +237,13 @@ export default function EurocookTool() {
 
         {/* HEADER */}
         <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 16px rgba(0,0,0,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 38, height: 38, background: `linear-gradient(135deg,${C.gold},#D4A85A)`, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19 }}>🍽️</div>
-            <div>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, letterSpacing: 2.5, lineHeight: 1 }}>EUROCOOK GLOBAL</div>
-              <div style={{ fontSize: 9.5, color: C.textMute, letterSpacing: 2.5, textTransform: "uppercase", marginTop: 2 }}>AI Social Media Studio</div>
-            </div>
-          </div>
+          <a href="https://eurocook.com.vn" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+            <img
+              src="/eurocook-logo.png"
+              alt="Eurocook Global"
+              style={{ height: 44, width: "auto", objectFit: "contain" }}
+            />
+          </a>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: isConnected ? C.greenBg : C.redBg, borderRadius: 20, border: `1px solid ${isConnected ? C.green : C.red}22` }}>
               <div style={{ width: 7, height: 7, borderRadius: "50%", background: isConnected ? C.green : C.red }} />
