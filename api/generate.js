@@ -31,7 +31,7 @@ Trả về JSON hợp lệ duy nhất, không markdown, không backticks:
   "headline": "<dưới 15 chữ, gây tò mò>",
   "body": "<150-250 chữ tiếng Việt, nếu đề cập sản phẩm hãy ghi rõ tên model cụ thể>",
   "cta": "<call-to-action mạnh>",
-  "hashtags": ["#Eurocook", "#EurocookVietnam", "<hashtag brand>", "<hashtag sản phẩm>", "<hashtag ngành>", ...],
+  "hashtags": ["#Eurocook", "#EurocookGlobal", "<hashtag brand>", "<hashtag sản phẩm>", "<hashtag ngành>", ...],
   "emoji_hook": "<2-3 emoji>",
   "best_time": "<khung giờ đăng tốt nhất>",
   "product_model": "<mã model sản phẩm nếu có, ví dụ: HQA514ES3 — null nếu không có>",
@@ -41,16 +41,17 @@ Trả về JSON hợp lệ duy nhất, không markdown, không backticks:
 }
 
 Quy tắc hashtags:
-- LUÔN bắt đầu bằng #Eurocook và #EurocookVietnam (thương hiệu đã đăng ký bản quyền)
+- LUÔN bắt đầu bằng #Eurocook và #EurocookGlobal — đây là pháp nhân chính thức duy nhất
+- TUYỆT ĐỐI KHÔNG dùng: #EurocookVietnam, #Eurocook_VN, hay bất kỳ biến thể nào khác
 - Tiếp theo là hashtag thương hiệu: #BOSCH, #Siemens, #Miele, #VZug, #Gaggenau, #Liebherr
-- Thêm hashtag sản phẩm, ngành bếp, lifestyle: #BếpCaoCapf, #ThietBiNhaBep, #NhaDepVietNam...
+- Thêm hashtag sản phẩm, ngành bếp, lifestyle: #BepCaoCap, #ThietBiNhaBep, #NhaDepVietNam
 - Tổng 10-15 hashtag
 
 Quy tắc image_queries: tiếng Anh, luôn kèm "kitchen"/"appliance"/"cooking", không dùng: car, sport, nature, bathroom.
 Quy tắc video_queries: tiếng Anh, về nấu ăn hoặc sử dụng thiết bị bếp, ví dụ: "cooking with induction hob", "steam oven baking bread", "luxury kitchen tour".`,
         messages: [{
           role: "user",
-          content: `Thương hiệu: ${brandName} (${brandTagline})\nLoại bài: ${postTypeLabel}\nGiọng điệu: ${toneLabel}\n${topic ? `Chủ đề cụ thể: ${topic}` : ""}\nTạo bài đăng Facebook cho fanpage Eurocook Vietnam.`,
+          content: `Thương hiệu: ${brandName} (${brandTagline})\nLoại bài: ${postTypeLabel}\nGiọng điệu: ${toneLabel}\n${topic ? `Chủ đề cụ thể: ${topic}` : ""}\nTạo bài đăng Facebook cho fanpage EUROCOOK GLOBAL.`,
         }],
       }),
     });
@@ -60,10 +61,14 @@ Quy tắc video_queries: tiếng Anh, về nấu ăn hoặc sử dụng thiết 
     const text = data.content?.map((i) => i.text || "").join("") || "";
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
 
-    // Đảm bảo #Eurocook luôn có mặt dù AI có quên
+    // Đảm bảo #Eurocook và #EurocookGlobal luôn đứng đầu — pháp nhân chính thức
     if (!parsed.hashtags) parsed.hashtags = [];
+    // Xóa mọi biến thể sai nếu AI tự thêm
+    parsed.hashtags = parsed.hashtags.filter(h =>
+      h !== "#EurocookVietnam" && h !== "#Eurocook_Vietnam" && h !== "#eurocook_vn"
+    );
+    if (!parsed.hashtags.includes("#EurocookGlobal")) parsed.hashtags.unshift("#EurocookGlobal");
     if (!parsed.hashtags.includes("#Eurocook")) parsed.hashtags.unshift("#Eurocook");
-    if (!parsed.hashtags.includes("#EurocookVietnam")) parsed.hashtags.splice(1, 0, "#EurocookVietnam");
 
     return res.status(200).json(parsed);
   } catch (err) {
