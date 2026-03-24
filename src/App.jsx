@@ -236,12 +236,12 @@ export default function EurocookTool() {
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
 
         {/* HEADER */}
-        <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 16px rgba(0,0,0,0.06)" }}>
-          <a href="https://eurocook.com.vn" target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+        <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 16px rgba(0,0,0,0.06)" }}>
+          <a href="https://eurocook-studio-o3yc.vercel.app/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
             <img
               src="/eurocook-logo.png"
               alt="Eurocook Global"
-              style={{ height: 44, width: "auto", objectFit: "contain" }}
+              style={{ height: 52, width: "auto", maxWidth: 220, objectFit: "contain", objectPosition: "left center" }}
             />
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
