@@ -628,6 +628,20 @@ function Loading({ label }) { return <div style={{ minHeight: 200, display: "fle
 function IBadge({ label, value }) { return <div style={{ padding: "8px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8 }}><div style={{ fontSize: 10.5, color: C.textMute, marginBottom: 3 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: C.gold }}>{value || "—"}</div></div>; }
 function HTagRow({ tags }) { return <div style={{ padding: "10px 12px", background: C.blueBg, border: `1px solid ${C.blue}18`, borderRadius: 8 }}><div style={{ fontSize: 10, color: C.textMute, letterSpacing: 1, marginBottom: 6, textTransform: "uppercase" }}>Hashtags</div><div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{tags.map((tag) => <span key={tag} style={{ padding: "3px 8px", background: "#fff", border: `1px solid ${C.blue}22`, borderRadius: 4, color: C.blue, fontSize: 11, fontWeight: 500 }}>{tag}</span>)}</div></div>; }
 
+function ImageGrid({ images }) {
+  if (!images || !images.length) return null;
+  const valid = images.filter(i => i.url?.trim());
+  if (!valid.length) return null;
+  const cols = valid.length === 1 ? "1fr" : valid.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr";
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: cols, gap: 2 }}>
+      {valid.slice(0, 6).map((img, i) => (
+        <img key={img.id || i} src={img.url} alt="" style={{ width: "100%", height: valid.length === 1 ? 220 : 100, objectFit: "cover", display: "block" }} onError={(e) => { e.target.style.display = "none"; }} />
+      ))}
+    </div>
+  );
+}
+
 function FBPreview({ post, productLink, images, videoUrl }) {
   return (
     <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
@@ -640,17 +654,7 @@ function FBPreview({ post, productLink, images, videoUrl }) {
       </div>
 
       {/* Multi-image preview */}
-      {images && images.filter(i => i.url?.trim()).length > 0 && (() => {
-        const validImgs = images.filter(i => i.url?.trim());
-        const cols = validImgs.length === 1 ? "1fr" : validImgs.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr";
-        return (
-          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 2 }}>
-            {validImgs.slice(0, 6).map((img, i) => (
-              <img key={img.id} src={img.url} alt="" style={{ width: "100%", height: validImgs.length === 1 ? 220 : 100, objectFit: "cover", display: "block" }} onError={(e) => e.target.style.display="none"} />
-            ))}
-          </div>
-        );
-      })()}
+      <ImageGrid images={images} />
 
       {/* Video preview */}
       {videoUrl && (
