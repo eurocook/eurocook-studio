@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const BRANDS = [
   { id: "bosch",    name: "BOSCH",    color: "#C8102E", light: "#fff0f0", icon: "⚙️", tagline: "Invented for life" },
@@ -54,10 +54,9 @@ export default function EurocookTool() {
   const [genError, setGenError]           = useState(null);
 
   // Media — ảnh (tối đa 6) + video
-  const [uploadedImages, setUploadedImages] = useState([]); // [{id, dataUrl, file, name}]
+  const [imageUrls, setImageUrls] = useState([{ id: 1, url: '' }]); // [{id, url}] tối đa 6
   const [videoUrl, setVideoUrl]           = useState("");
   const [mediaMode, setMediaMode]         = useState("image"); // "image" | "video" | "none"
-  const imageInputRef                     = useRef(null);
 
   // Publish
   const [fbPageId, setFbPageId]           = useState(() => LS.get("ec_pageId", ""));
@@ -102,49 +101,6 @@ export default function EurocookTool() {
     } finally { setGenerating(false); }
   }, [selectedBrand, postType, tone, topic]);
 
-  // ── UPLOAD ẢNH ───────────────────────────────────────────────
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    const remaining = 6 - uploadedImages.length;
-    const toProcess = files.slice(0, remaining);
-
-    toProcess.forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setUploadedImages((prev) => {
-          if (prev.length >= 6) return prev;
-          return [...prev, {
-            id: Date.now() + Math.random(),
-            dataUrl: ev.target.result,
-            name: file.name,
-            size: file.size,
-          }];
-        });
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // Reset input để có thể chọn lại file cùng tên
-    e.target.value = "";
-  };
-
-  const removeImage = (id) => setUploadedImages((prev) => prev.filter((img) => img.id !== id));
-
-  const moveImage = (id, dir) => {
-    setUploadedImages((prev) => {
-      const idx = prev.findIndex((img) => img.id === id);
-      if (idx < 0) return prev;
-      const next = [...prev];
-      const swapIdx = dir === "left" ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= next.length) return prev;
-      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
-      return next;
-    });
-  };
-
   // ── PUBLISH ─────────────────────────────────────────────────
   const publishToFacebook = async () => {
     if (!generatedPost || !fbPageId || !fbToken) return;
@@ -169,9 +125,7 @@ export default function EurocookTool() {
         body = {
           pageId: fbPageId, accessToken: fbToken,
           message: buildPostText(generatedPost),
-          images: mediaMode === "image" && uploadedImages.length > 0
-            ? uploadedImages.map((img) => img.dataUrl)
-            : [],
+          images: mediaMode === "image" ? imageUrls.map(i => i.url).filter(u => u.trim()) : [],
           productLink: productLink || null,
           publishMode,
           scheduledTime: publishMode === "scheduled" ? scheduleTime : null,
@@ -192,8 +146,8 @@ export default function EurocookTool() {
           ...generatedPost, id: Date.now(), published: true,
           fbPostId: result.postId, publishedAt: new Date(),
           mode: publishMode, mediaMode,
-          imageCount: uploadedImages.length,
-          previewImage: uploadedImages[0]?.dataUrl || null,
+          imageCount: imageUrls.filter(i => i.url.trim()).length,
+          previewImage: imageUrls[0]?.url || null,
         }, ...prev]);
       }
     } catch { setPublishError("Lỗi kết nối server."); }
@@ -201,7 +155,7 @@ export default function EurocookTool() {
   };
 
   const copyPost  = () => { if (!generatedPost) return; navigator.clipboard.writeText(buildPostText(generatedPost)); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  const savePost  = () => { if (!generatedPost) return; setSavedPosts((prev) => [{ ...generatedPost, id: Date.now(), published: false, previewImage: uploadedImages[0]?.dataUrl || null }]); };
+  const savePost  = () => { if (!generatedPost) return; setSavedPosts((prev) => [{ ...generatedPost, id: Date.now(), published: false, previewImage: imageUrls[0]?.url || null }]); };
   const saveSettings = () => { LS.set("ec_pageId", fbPageId); LS.set("ec_token", fbToken); LS.set("ec_pageName", pageName); setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2500); };
 
   const isConnected = !!(fbPageId && fbToken);
@@ -229,8 +183,6 @@ export default function EurocookTool() {
         .fade-in { animation: fadeIn .35s ease; }
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-thumb { background: ${C.border2}; border-radius: 3px; }
-        .img-slot { transition: all .2s; }
-        .img-slot:hover .img-actions { opacity: 1 !important; }
       `}</style>
 
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
@@ -332,56 +284,55 @@ export default function EurocookTool() {
                         ))}
                       </div>
 
-                      {/* ── ẢNH ── */}
+                      {/* ── ẢNH — Nhập URL ── */}
                       {mediaMode === "image" && (
                         <div>
-                          {/* Grid ảnh đã upload */}
-                          {uploadedImages.length > 0 && (
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 12 }}>
-                              {uploadedImages.map((img, idx) => (
-                                <div key={img.id} className="img-slot" style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `2px solid ${idx === 0 ? C.gold : C.border}`, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-                                  <img src={img.dataUrl} alt={img.name} style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }} />
-                                  {/* Badge ảnh chính */}
-                                  {idx === 0 && <div style={{ position: "absolute", top: 5, left: 5, background: C.gold, color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>CHÍNH</div>}
-                                  {/* Số thứ tự */}
-                                  <div style={{ position: "absolute", top: 5, right: 5, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{idx + 1}</div>
-                                  {/* Actions */}
-                                  <div className="img-actions" style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.65)", display: "flex", justifyContent: "center", gap: 4, padding: "5px", opacity: 0, transition: "opacity .2s" }}>
-                                    {idx > 0 && <button onClick={() => moveImage(img.id, "left")} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 12 }}>←</button>}
-                                    {idx < uploadedImages.length - 1 && <button onClick={() => moveImage(img.id, "right")} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 12 }}>→</button>}
-                                    <button onClick={() => removeImage(img.id)} style={{ background: "rgba(192,57,43,0.8)", border: "none", color: "#fff", borderRadius: 4, padding: "2px 6px", fontSize: 12 }}>✕</button>
-                                  </div>
-                                </div>
-                              ))}
-
-                              {/* Slot thêm ảnh */}
-                              {uploadedImages.length < 6 && (
-                                <button onClick={() => imageInputRef.current?.click()} style={{ height: 100, borderRadius: 8, border: `2px dashed ${C.border2}`, background: C.bg, color: C.textMute, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                                  <span style={{ fontSize: 22 }}>+</span>
-                                  <span style={{ fontSize: 11 }}>Thêm ảnh</span>
-                                </button>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                            <span style={{ fontSize: 12, color: C.textSub }}>Dán link ảnh · tối đa 6 ảnh</span>
+                            <div style={{ display: "flex", gap: 7 }}>
+                              {imageUrls.length < 6 && (
+                                <button onClick={() => setImageUrls(prev => [...prev, { id: Date.now(), url: "" }])} style={{ background: "none", border: `1px solid ${C.gold}`, borderRadius: 6, color: C.goldDk, fontSize: 12, padding: "4px 10px" }}>+ Thêm ảnh</button>
+                              )}
+                              {imageUrls.length > 1 && (
+                                <button onClick={() => setImageUrls([{ id: 1, url: "" }])} style={{ background: "none", border: "none", color: C.textMute, fontSize: 12 }}>Xóa tất cả</button>
                               )}
                             </div>
-                          )}
+                          </div>
 
-                          {/* Upload button */}
-                          {uploadedImages.length === 0 && (
-                            <button onClick={() => imageInputRef.current?.click()} style={{ width: "100%", padding: "28px 20px", borderRadius: 10, border: `2px dashed ${C.border2}`, background: C.bg, color: C.textSub, fontSize: 14, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                              <span style={{ fontSize: 32 }}>📷</span>
-                              <span style={{ fontWeight: 500 }}>Nhấn để chọn ảnh</span>
-                              <span style={{ fontSize: 12, color: C.textMute }}>Tối đa 6 ảnh · JPG, PNG, WEBP</span>
-                            </button>
-                          )}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {imageUrls.map((item, idx) => (
+                              <div key={item.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                {/* Preview thumbnail */}
+                                <div style={{ width: 48, height: 48, borderRadius: 7, overflow: "hidden", border: `1.5px solid ${item.url ? C.gold : C.border}`, flexShrink: 0, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  {item.url ? (
+                                    <img src={item.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
+                                  ) : null}
+                                  <div style={{ display: item.url ? "none" : "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", color: C.textMute, fontSize: 18 }}>🖼️</div>
+                                </div>
 
-                          <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: "none" }} />
+                                {/* Input URL */}
+                                <div style={{ flex: 1, position: "relative" }}>
+                                  {idx === 0 && <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 9, fontWeight: 700, color: C.gold, background: C.goldBg, padding: "1px 5px", borderRadius: 3, letterSpacing: 0.5 }}>CHÍNH</span>}
+                                  <input
+                                    value={item.url}
+                                    onChange={(e) => setImageUrls(prev => prev.map(i => i.id === item.id ? { ...i, url: e.target.value } : i))}
+                                    placeholder={`Ảnh ${idx + 1} — dán link ảnh vào đây...`}
+                                    style={{ ...IS, paddingLeft: idx === 0 ? 60 : 13 }}
+                                  />
+                                </div>
 
-                          {uploadedImages.length > 0 && (
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: C.goldBg, border: `1px solid ${C.gold}33`, borderRadius: 8 }}>
-                              <span style={{ fontSize: 12, color: C.goldDk, fontWeight: 500 }}>📷 {uploadedImages.length}/6 ảnh · Hover để sắp xếp hoặc xóa</span>
-                              <div style={{ display: "flex", gap: 8 }}>
-                                {uploadedImages.length < 6 && <button onClick={() => imageInputRef.current?.click()} style={{ background: "none", border: `1px solid ${C.gold}`, borderRadius: 6, color: C.goldDk, fontSize: 12, padding: "4px 10px", cursor: "pointer" }}>+ Thêm</button>}
-                                <button onClick={() => setUploadedImages([])} style={{ background: "none", border: "none", color: C.textMute, fontSize: 12, cursor: "pointer" }}>Xóa tất cả</button>
+                                {/* Xóa */}
+                                {imageUrls.length > 1 && (
+                                  <button onClick={() => setImageUrls(prev => prev.filter(i => i.id !== item.id))} style={{ width: 32, height: 38, border: `1px solid ${C.border}`, borderRadius: 7, background: C.surface, color: C.textMute, fontSize: 14, flexShrink: 0 }}>✕</button>
+                                )}
                               </div>
+                            ))}
+                          </div>
+
+                          {/* Summary */}
+                          {imageUrls.filter(i => i.url.trim()).length > 0 && (
+                            <div style={{ marginTop: 10, padding: "7px 11px", background: C.goldBg, border: `1px solid ${C.gold}33`, borderRadius: 7, fontSize: 12, color: C.goldDk, fontWeight: 500 }}>
+                              ✅ {imageUrls.filter(i => i.url.trim()).length}/6 ảnh đã có link
                             </div>
                           )}
                         </div>
@@ -476,19 +427,19 @@ export default function EurocookTool() {
 
                   {mediaMode === "image" && (
                     <div style={{ marginTop: 10 }}>
-                      {uploadedImages.length > 0 ? (
+                      {imageUrls.filter(i => i.url.trim()).length > 0 ? (
                         <div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {uploadedImages.map((img, i) => (
-                              <img key={img.id} src={img.dataUrl} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: i === 0 ? `2px solid ${C.gold}` : `1px solid ${C.border}` }} />
+                            {imageUrls.filter(i => i.url.trim()).map((img, i) => (
+                              <img key={img.id} src={img.url} alt="" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 6, border: i === 0 ? `2px solid ${C.gold}` : `1px solid ${C.border}` }} onError={(e) => e.target.style.opacity = "0.3"} />
                             ))}
                           </div>
                           <div style={{ marginTop: 7, fontSize: 12, color: C.textSub }}>
-                            {uploadedImages.length} ảnh · <button onClick={() => setActiveTab("generator")} style={{ background: "none", border: "none", color: C.gold, textDecoration: "underline", cursor: "pointer", fontSize: 12 }}>Thay đổi ảnh →</button>
+                            {imageUrls.filter(i => i.url.trim()).length} ảnh · <button onClick={() => setActiveTab("generator")} style={{ background: "none", border: "none", color: C.gold, textDecoration: "underline", cursor: "pointer", fontSize: 12 }}>Thay đổi →</button>
                           </div>
                         </div>
                       ) : (
-                        <Alert type="info" msg={<span>Chưa có ảnh. <button onClick={() => setActiveTab("generator")} style={{ background: "none", border: "none", color: C.blue, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Quay lại upload ảnh →</button></span>} />
+                        <Alert type="info" msg={<span>Chưa có ảnh. <button onClick={() => setActiveTab("generator")} style={{ background: "none", border: "none", color: C.blue, textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Quay lại nhập link ảnh →</button></span>} />
                       )}
                     </div>
                   )}
@@ -533,7 +484,7 @@ export default function EurocookTool() {
                 >
                   {publishing ? <><Spin /> Đang đăng...</>
                     : mediaMode === "video" ? "🎬  Đăng Video lên Facebook"
-                    : mediaMode === "image" && uploadedImages.length > 0 ? `🖼️  Đăng ${uploadedImages.length} ảnh lên Facebook`
+                    : mediaMode === "image" && imageUrls.filter(i => i.url.trim()).length > 0 ? `🖼️  Đăng ${imageUrls.filter(i => i.url.trim()).length} ảnh lên Facebook`
                     : "📝  Đăng bài lên Facebook"}
                 </PrimBtn>
 
@@ -689,19 +640,17 @@ function FBPreview({ post, productLink, images, videoUrl }) {
       </div>
 
       {/* Multi-image preview */}
-      {images && images.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: images.length === 1 ? "1fr" : images.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr", gap: 2 }}>
-          {images.slice(0, 6).map((img, i) => (
-            <div key={img.id} style={{ position: "relative" }}>
-              <img src={img.dataUrl} alt="" style={{ width: "100%", height: images.length === 1 ? 220 : 100, objectFit: "cover", display: "block" }} />
-              {/* Overlay "+N" nếu còn ảnh */}
-              {i === 5 && images.length > 6 && (
-                <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20, fontWeight: 700 }}>+{images.length - 6}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {images && images.filter(i => i.url?.trim()).length > 0 && (() => {
+        const validImgs = images.filter(i => i.url?.trim());
+        const cols = validImgs.length === 1 ? "1fr" : validImgs.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr";
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: cols, gap: 2 }}>
+            {validImgs.slice(0, 6).map((img, i) => (
+              <img key={img.id} src={img.url} alt="" style={{ width: "100%", height: validImgs.length === 1 ? 220 : 100, objectFit: "cover", display: "block" }} onError={(e) => e.target.style.display="none"} />
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Video preview */}
       {videoUrl && (
