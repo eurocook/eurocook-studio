@@ -78,8 +78,10 @@ export default function EurocookTool() {
 
   useEffect(() => { LS.set("ec_saved", savedPosts); }, [savedPosts]);
 
-  const buildPostText = (post) =>
-    `${post.emoji_hook} ${post.headline}\n\n${post.body}\n\n👉 ${post.cta}\n\n${post.hashtags.join(" ")}`;
+  const buildPostText = (post) => {
+    const tags = Array.isArray(post.hashtags) ? post.hashtags.join(' ') : '';
+    return `${post.emoji_hook || ''} ${post.headline || ''}\n\n${post.body || ''}\n\n👉 ${post.cta || ''}\n\n${tags}`;
+  };
 
   // ── GENERATE ─────────────────────────────────────────────────
   const generatePost = useCallback(async () => {
@@ -95,6 +97,9 @@ export default function EurocookTool() {
       });
       const parsed = await res.json();
       if (!res.ok) throw new Error(parsed.error || "Lỗi server");
+      // Đảm bảo các field bắt buộc tồn tại
+      if (!parsed.headline || !parsed.body) throw new Error("Dữ liệu bài trả về không hợp lệ");
+      if (!Array.isArray(parsed.hashtags)) parsed.hashtags = ["#Eurocook", "#EurocookGlobal"];
       setGeneratedPost({ ...parsed, brand: selectedBrand, postType, timestamp: new Date() });
     } catch (err) {
       setGenError(err.message || "Lỗi khi tạo bài.");
@@ -305,7 +310,7 @@ export default function EurocookTool() {
                                 {/* Preview thumbnail */}
                                 <div style={{ width: 48, height: 48, borderRadius: 7, overflow: "hidden", border: `1.5px solid ${item.url ? C.gold : C.border}`, flexShrink: 0, background: C.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                   {item.url ? (
-                                    <img src={item.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
+                                    <img src={item.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; if (e.target.nextSibling) e.target.nextSibling.style.display = "flex"; }} />
                                   ) : null}
                                   <div style={{ display: item.url ? "none" : "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", color: C.textMute, fontSize: 18 }}>🖼️</div>
                                 </div>
@@ -626,7 +631,7 @@ function Spin() { return <span style={{ width: 14, height: 14, border: `2px soli
 function Empty({ icon, text }) { return <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}><div style={{ fontSize: 36, opacity: .2 }}>{icon}</div><div style={{ fontSize: 13, textAlign: "center", lineHeight: 1.8, color: C.textMute, whiteSpace: "pre-line" }}>{text}</div></div>; }
 function Loading({ label }) { return <div style={{ minHeight: 200, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 13 }}><div style={{ width: 40, height: 40, border: `3px solid ${C.goldLt}`, borderTopColor: C.gold, borderRadius: "50%", animation: "spin 1s linear infinite" }} /><div style={{ color: C.gold, fontSize: 13, fontWeight: 500 }}>{label}</div></div>; }
 function IBadge({ label, value }) { return <div style={{ padding: "8px 12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8 }}><div style={{ fontSize: 10.5, color: C.textMute, marginBottom: 3 }}>{label}</div><div style={{ fontSize: 13, fontWeight: 600, color: C.gold }}>{value || "—"}</div></div>; }
-function HTagRow({ tags }) { return <div style={{ padding: "10px 12px", background: C.blueBg, border: `1px solid ${C.blue}18`, borderRadius: 8 }}><div style={{ fontSize: 10, color: C.textMute, letterSpacing: 1, marginBottom: 6, textTransform: "uppercase" }}>Hashtags</div><div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{tags.map((tag) => <span key={tag} style={{ padding: "3px 8px", background: "#fff", border: `1px solid ${C.blue}22`, borderRadius: 4, color: C.blue, fontSize: 11, fontWeight: 500 }}>{tag}</span>)}</div></div>; }
+function HTagRow({ tags }) { const safeTags = Array.isArray(tags) ? tags : []; return <div style={{ padding: "10px 12px", background: C.blueBg, border: `1px solid ${C.blue}18`, borderRadius: 8 }}><div style={{ fontSize: 10, color: C.textMute, letterSpacing: 1, marginBottom: 6, textTransform: "uppercase" }}>Hashtags</div><div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>{safeTags.map((tag) => <span key={tag} style={{ padding: "3px 8px", background: "#fff", border: `1px solid ${C.blue}22`, borderRadius: 4, color: C.blue, fontSize: 11, fontWeight: 500 }}>{tag}</span>)}</div></div>; }
 
 function ImageGrid({ images }) {
   if (!images || !images.length) return null;
