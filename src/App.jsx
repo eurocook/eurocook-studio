@@ -26,6 +26,7 @@ const TONES = [
 ];
 
 const TABS = ["generator", "publish", "saved", "settings"];
+const MEDIA_TABS = ["image", "video"];
 
 const C = {
   bg: "#F7F6F3", surface: "#FFFFFF", border: "#E5E1D8", border2: "#CCC8BE",
@@ -61,6 +62,12 @@ export default function EurocookTool() {
   const [productImages, setProductImages] = useState([]);
   const [loadingProductImg, setLoadingProductImg] = useState(false);
   const [detectedModel, setDetectedModel] = useState(null);
+  // Video
+  const [mediaTab, setMediaTab]           = useState("image"); // "image" | "video"
+  const [videos, setVideos]               = useState([]);
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [publishType, setPublishType]     = useState("image"); // "image" | "video"
 
   // Publish — load từ localStorage
   const [fbPageId, setFbPageId]           = useState(() => LS.get("ec_pageId", ""));
@@ -117,6 +124,10 @@ export default function EurocookTool() {
         setDetectedModel(null);
         setProductImages([]);
       }
+      // Tự động tìm video
+      setSelectedVideo(null);
+      const vq = parsed.video_queries?.length ? parsed.video_queries : [bi.pexels + " cooking"];
+      fetchVideos(vq);
     } catch (err) {
       setGenError(err.message || "Lỗi khi tạo bài. Vui lòng thử lại.");
     } finally { setGenerating(false); }
@@ -158,6 +169,29 @@ export default function EurocookTool() {
     finally { setLoadingProductImg(false); }
   };
 
+  // ── TÌM VIDEO TỰ ĐỘNG ────────────────────────────────────────
+  const fetchVideos = async (queriesOrString) => {
+    setLoadingVideos(true);
+    setVideos([]);
+    const queries = Array.isArray(queriesOrString) ? queriesOrString : [queriesOrString];
+    try {
+      const res = await fetch("/api/videos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ queries }),
+      });
+      const data = await res.json();
+      if (data.videos?.length) setVideos(data.videos);
+    } catch {}
+    finally { setLoadingVideos(false); }
+  };
+
+  const refreshVideos = () => {
+    if (!generatedPost) return;
+    const vq = generatedPost.video_queries;
+    if (vq?.length) fetchVideos(vq);
+    else if (brand) fetchVideos([brand.pexels + " cooking"]);
+  };
+
   const refreshImages = () => {
     if (!brand) return;
     // Dùng lại AI queries nếu có, fallback về brand default
@@ -170,6 +204,29 @@ export default function EurocookTool() {
   };
 
   // ── ĐĂNG FACEBOOK ────────────────────────────────────────────
+  const publishVideoToFacebook = async () => {
+    if (!generatedPost || !fbPageId || !fbToken || !selectedVideo) return;
+    setPublishing(true); setPublishResult(null); setPublishError(null);
+    try {
+      const res = await fetch("/api/publish-video", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId: fbPageId, accessToken: fbToken,
+          message: buildPostText(generatedPost),
+          videoUrl: selectedVideo.url,
+          publishMode, scheduledTime: publishMode === "scheduled" ? scheduleTime : null,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok || result.error) setPublishError(result.error || "Lỗi đăng video");
+      else {
+        setPublishResult(result.postId);
+        setSavedPosts((prev) => [{ ...generatedPost, id: Date.now(), published: true, fbPostId: result.postId, publishedAt: new Date(), mode: publishMode, videoUrl: selectedVideo.url, isVideo: true }, ...prev]);
+      }
+    } catch { setPublishError("Lỗi kết nối server."); }
+    finally { setPublishing(false); }
+  };
+
   const publishToFacebook = async () => {
     if (!generatedPost || !fbPageId || !fbToken) return;
     setPublishing(true); setPublishResult(null); setPublishError(null);
@@ -405,6 +462,64 @@ export default function EurocookTool() {
                       </div>
                     </Card>
 
+                    {/* VIDEO SECTION */}
+                    <Card step={detectedModel ? "06" : "05"} title="🎬 Chọn video đính kèm">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <span style={{ fontSize: 12, color: C.textSub }}>Video tự động tìm theo nội dung bài</span>
+                        <SecBtn small onClick={refreshVideos} disabled={loadingVideos}>
+                          {loadingVideos ? <><Spin /> Đang tìm...</> : "🔄 Tìm video khác"}
+                        </SecBtn>
+                      </div>
+
+                      {loadingVideos && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", color: C.gold, fontSize: 13 }}>
+                          <Spin /> Đang tìm video phù hợp...
+                        </div>
+                      )}
+
+                      {!loadingVideos && videos.length > 0 && (
+                        <>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
+                            {videos.map((vid) => (
+                              <div key={vid.id} className="img-card" onClick={() => setSelectedVideo(selectedVideo?.id === vid.id ? null : vid)} style={{ position: "relative", borderRadius: 8, overflow: "hidden", cursor: "pointer", border: `2.5px solid ${selectedVideo?.id === vid.id ? C.gold : "transparent"}`, transition: "all .2s", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", background: "#000" }}>
+                                <img src={vid.thumbnail} alt="video thumbnail" style={{ width: "100%", height: 90, objectFit: "cover", display: "block", opacity: 0.85 }} />
+                                {/* Play icon overlay */}
+                                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>▶</div>
+                                {/* Duration badge */}
+                                <div style={{ position: "absolute", bottom: 5, right: 5, background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 10, padding: "2px 5px", borderRadius: 4 }}>
+                                  {Math.floor(vid.duration/60)}:{String(vid.duration%60).padStart(2,"0")}
+                                </div>
+                                {selectedVideo?.id === vid.id && (
+                                  <div style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%", background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff" }}>✓</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {selectedVideo && (
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 11px", background: C.goldBg, border: `1px solid ${C.gold}33`, borderRadius: 7 }}>
+                              <span style={{ fontSize: 12, color: C.goldDk, fontWeight: 500 }}>🎬 Đã chọn · {Math.floor(selectedVideo.duration/60)}:{String(selectedVideo.duration%60).padStart(2,"0")} · {selectedVideo.photographer}</span>
+                              <button onClick={() => setSelectedVideo(null)} style={{ background: "none", border: "none", color: C.textMute, fontSize: 13, padding: 0 }}>✕</button>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {!loadingVideos && videos.length === 0 && (
+                        <div style={{ textAlign: "center", padding: "12px 0", color: C.textMute, fontSize: 13 }}>
+                          <button onClick={refreshVideos} style={{ background: "none", border: "none", color: C.gold, cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>Tìm video ngay</button>
+                        </div>
+                      )}
+
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+                        <span style={{ fontSize: 11, color: C.textMute }}>Hoặc dán URL video thủ công:</span>
+                        <input
+                          placeholder="https://... (.mp4)"
+                          style={{ ...IS, marginTop: 6 }}
+                          onChange={(e) => { if (e.target.value) setSelectedVideo({ id: "manual", url: e.target.value, previewUrl: e.target.value, thumbnail: null, duration: 0, photographer: "Manual" }); else setSelectedVideo(null); }}
+                        />
+                      </div>
+                    </Card>
+
                     {/* Preview Facebook */}
                     <Card step="05" title="Xem trước & Xuất bài">
                       <FBPreview post={generatedPost} productLink={productLink} imageUrl={selectedImage?.thumb} />
@@ -486,8 +601,22 @@ export default function EurocookTool() {
                   )}
                 </Card>
 
-                <PrimBtn onClick={publishToFacebook} disabled={!generatedPost || !isConnected || publishing || (publishMode === "scheduled" && !scheduleTime)}>
-                  {publishing ? <><Spin /> Đang đăng...</> : publishMode === "now" ? "🚀  Đăng lên Facebook ngay" : "📅  Lên lịch đăng bài"}
+                {/* Chọn loại nội dung đăng */}
+                <Card step="" title="Loại nội dung đăng">
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[["image","🖼️ Ảnh + Text"],["video","🎬 Video + Text"]].map(([val,lbl]) => (
+                      <button key={val} onClick={() => setPublishType(val)} style={{ flex:1, padding:"10px", borderRadius:8, fontSize:13, fontWeight:500, border:`1.5px solid ${publishType===val ? C.gold : C.border}`, background:publishType===val ? C.goldBg : C.surface, color:publishType===val ? C.goldDk : C.textSub }}>{lbl}</button>
+                    ))}
+                  </div>
+                  {publishType === "video" && (
+                    <div style={{ marginTop:10, padding:"8px 12px", background:C.blueBg, border:`1px solid ${C.blue}18`, borderRadius:7, fontSize:12, color:C.blue }}>
+                      {selectedVideo ? `🎬 Đã chọn: ${Math.floor(selectedVideo.duration/60)}:${String(selectedVideo.duration%60).padStart(2,"0")} · ${selectedVideo.photographer}` : "⚠️ Chưa chọn video — vào tab Tạo bài để chọn video"}
+                    </div>
+                  )}
+                </Card>
+
+                <PrimBtn onClick={publishType === "video" ? publishVideoToFacebook : publishToFacebook} disabled={!generatedPost || !isConnected || publishing || (publishMode === "scheduled" && !scheduleTime) || (publishType === "video" && !selectedVideo)}>
+                  {publishing ? <><Spin /> Đang đăng...</> : publishMode === "now" ? (publishType === "video" ? "🎬  Đăng Video ngay" : "🚀  Đăng ảnh ngay") : "📅  Lên lịch đăng bài"}
                 </PrimBtn>
 
                 {publishError && <Alert type="error" msg={publishError} />}
