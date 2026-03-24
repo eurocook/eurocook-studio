@@ -58,6 +58,9 @@ export default function EurocookTool() {
   const [images, setImages]               = useState([]);
   const [loadingImages, setLoadingImages] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [productImages, setProductImages] = useState([]);
+  const [loadingProductImg, setLoadingProductImg] = useState(false);
+  const [detectedModel, setDetectedModel] = useState(null);
 
   // Publish — load từ localStorage
   const [fbPageId, setFbPageId]           = useState(() => LS.get("ec_pageId", ""));
@@ -103,20 +106,30 @@ export default function EurocookTool() {
       if (!res.ok) throw new Error(parsed.error || "Lỗi server");
       const post = { ...parsed, brand: selectedBrand, postType, timestamp: new Date() };
       setGeneratedPost(post);
-      // Tự động tìm ảnh sau khi tạo bài xong
-      fetchImages(bi.pexels + (topic ? ` ${topic}` : ""));
+      // Tự động tìm ảnh dùng queries từ AI
+      const aiQueries = parsed.image_queries?.length ? parsed.image_queries : [bi.pexels];
+      fetchImages(aiQueries);
+      // Nếu có model sản phẩm → tìm ảnh đúng model
+      if (parsed.product_model || parsed.product_name) {
+        setDetectedModel(parsed.product_model || parsed.product_name);
+        fetchProductImage(parsed.product_model, bi.name, parsed.product_name);
+      } else {
+        setDetectedModel(null);
+        setProductImages([]);
+      }
     } catch (err) {
       setGenError(err.message || "Lỗi khi tạo bài. Vui lòng thử lại.");
     } finally { setGenerating(false); }
   }, [selectedBrand, postType, tone, topic]);
 
   // ── TÌM ẢNH TỰ ĐỘNG ─────────────────────────────────────────
-  const fetchImages = async (query) => {
+  const fetchImages = async (queriesOrString) => {
     setLoadingImages(true);
+    const queries = Array.isArray(queriesOrString) ? queriesOrString : [queriesOrString];
     try {
       const res = await fetch("/api/images", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ queries }),
       });
       const data = await res.json();
       if (data.photos?.length) {
@@ -127,10 +140,33 @@ export default function EurocookTool() {
     finally { setLoadingImages(false); }
   };
 
+  // ── TÌM ẢNH ĐÚNG MODEL ──────────────────────────────────────
+  const fetchProductImage = async (model, brandName, productName) => {
+    setLoadingProductImg(true);
+    setProductImages([]);
+    try {
+      const res = await fetch("/api/product-image", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, brandName, productName }),
+      });
+      const data = await res.json();
+      if (data.images?.length) {
+        setProductImages(data.images);
+        setSelectedImage(data.images[0]); // tự chọn ảnh sản phẩm đúng model
+      }
+    } catch {}
+    finally { setLoadingProductImg(false); }
+  };
+
   const refreshImages = () => {
     if (!brand) return;
-    const query = brand.pexels + (topic ? ` ${topic}` : "");
-    fetchImages(query);
+    // Dùng lại AI queries nếu có, fallback về brand default
+    const aiQueries = generatedPost?.image_queries;
+    if (aiQueries?.length) {
+      fetchImages(aiQueries);
+    } else {
+      fetchImages([brand.pexels + (topic ? ` ${topic}` : "")]);
+    }
   };
 
   // ── ĐĂNG FACEBOOK ────────────────────────────────────────────
@@ -289,8 +325,38 @@ export default function EurocookTool() {
                 {generatedPost && !generating && (
                   <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                    {/* Ảnh tự động */}
-                    <Card step="04" title="Chọn ảnh đính kèm">
+                    {/* Ảnh sản phẩm đúng model */}
+                    {detectedModel && (
+                      <Card step="04" title={`🎯 Ảnh sản phẩm — ${detectedModel}`}>
+                        {loadingProductImg && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: C.gold, fontSize: 13 }}>
+                            <Spin /> Đang tìm ảnh đúng model {detectedModel}...
+                          </div>
+                        )}
+                        {!loadingProductImg && productImages.length > 0 && (
+                          <>
+                            <div style={{ padding: "6px 10px", background: C.greenBg, border: `1px solid ${C.green}22`, borderRadius: 7, marginBottom: 10, fontSize: 12, color: C.green, fontWeight: 500 }}>
+                              ✅ Tìm thấy {productImages.length} ảnh sản phẩm đúng model
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 10 }}>
+                              {productImages.map((img, i) => (
+                                <div key={i} className="img-card" onClick={() => setSelectedImage(img)} style={{ position: "relative", borderRadius: 8, overflow: "hidden", cursor: "pointer", border: `2.5px solid ${selectedImage?.url === img.url ? C.gold : "transparent"}`, transition: "all .2s", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+                                  <img src={img.thumb} alt={img.alt} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} onError={(e) => e.target.closest("div").style.display="none"} />
+                                  {selectedImage?.url === img.url && <div style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%", background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>✓</div>}
+                                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 9, padding: "3px 6px", textAlign: "center" }}>{img.source}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        {!loadingProductImg && productImages.length === 0 && (
+                          <div style={{ fontSize: 12, color: C.textMute, padding: "8px 0" }}>Không tìm thấy ảnh đúng model. Dùng ảnh Pexels bên dưới hoặc dán URL thủ công.</div>
+                        )}
+                      </Card>
+                    )}
+
+                    {/* Ảnh Pexels tự động */}
+                    <Card step={detectedModel ? "05" : "04"} title="Chọn ảnh đính kèm">
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                         <span style={{ fontSize: 12, color: C.textSub }}>Ảnh tự động tìm theo nội dung bài</span>
                         <SecBtn small onClick={refreshImages} disabled={loadingImages}>
@@ -300,7 +366,7 @@ export default function EurocookTool() {
 
                       {loadingImages && (
                         <div style={{ display: "flex", gap: 8 }}>
-                          {[1,2,3,4,5,6].map((i) => <div key={i} style={{ flex: 1, height: 80, background: C.border, borderRadius: 8, animation: "pulse 1.5s ease infinite" }} />)}
+                          {[1,2,3,4,5,6].map((i) => <div key={i} style={{ flex: 1, height: 80, background: C.border, borderRadius: 8 }} />)}
                         </div>
                       )}
 
@@ -310,15 +376,13 @@ export default function EurocookTool() {
                             {images.map((img) => (
                               <div key={img.id} className="img-card" onClick={() => setSelectedImage(img)} style={{ position: "relative", borderRadius: 8, overflow: "hidden", cursor: "pointer", border: `2.5px solid ${selectedImage?.id === img.id ? C.gold : "transparent"}`, transition: "all .2s", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
                                 <img src={img.thumb} alt={img.alt} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
-                                {selectedImage?.id === img.id && (
-                                  <div style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%", background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>✓</div>
-                                )}
+                                {selectedImage?.id === img.id && <div style={{ position: "absolute", top: 5, right: 5, width: 22, height: 22, borderRadius: "50%", background: C.gold, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff" }}>✓</div>}
                               </div>
                             ))}
                           </div>
                           {selectedImage && (
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 11px", background: C.goldBg, borderRadius: 7, border: `1px solid ${C.gold}33` }}>
-                              <span style={{ fontSize: 12, color: C.goldDk, fontWeight: 500 }}>✅ Đã chọn ảnh · Photo by {selectedImage.photographer}</span>
+                              <span style={{ fontSize: 12, color: C.goldDk, fontWeight: 500 }}>✅ {selectedImage.source ? `Nguồn: ${selectedImage.source}` : `Photo by ${selectedImage.photographer || "Pexels"}`}</span>
                               <button onClick={() => setSelectedImage(null)} style={{ background: "none", border: "none", color: C.textMute, fontSize: 13, padding: 0 }}>✕ Bỏ chọn</button>
                             </div>
                           )}
@@ -326,18 +390,17 @@ export default function EurocookTool() {
                       )}
 
                       {!loadingImages && images.length === 0 && (
-                        <div style={{ textAlign: "center", padding: "16px 0", color: C.textMute, fontSize: 13 }}>
-                          Chưa có ảnh. <button onClick={refreshImages} style={{ background: "none", border: "none", color: C.gold, cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>Tìm ảnh ngay</button>
+                        <div style={{ textAlign: "center", padding: "12px 0", color: C.textMute, fontSize: 13 }}>
+                          <button onClick={refreshImages} style={{ background: "none", border: "none", color: C.gold, cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>Tìm ảnh ngay</button>
                         </div>
                       )}
 
-                      {/* Hoặc nhập URL thủ công */}
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
-                        <span style={{ fontSize: 11, color: C.textMute }}>Hoặc dán URL ảnh/video thủ công:</span>
+                        <span style={{ fontSize: 11, color: C.textMute }}>Hoặc dán URL ảnh từ website Eurocook:</span>
                         <input
-                          placeholder="https://... (ảnh sản phẩm từ website Eurocook)"
+                          placeholder="https://eurocook.com.vn/..."
                           style={{ ...IS, marginTop: 6 }}
-                          onChange={(e) => { if (e.target.value) setSelectedImage({ id: "manual", url: e.target.value, thumb: e.target.value, photographer: "Manual" }); else setSelectedImage(null); }}
+                          onChange={(e) => { if (e.target.value) setSelectedImage({ url: e.target.value, thumb: e.target.value, source: "Manual URL" }); else setSelectedImage(null); }}
                         />
                       </div>
                     </Card>
