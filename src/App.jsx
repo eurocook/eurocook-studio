@@ -236,26 +236,33 @@ export default function EurocookTool() {
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
 
         {/* HEADER */}
-        <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 16px rgba(0,0,0,0.06)" }}>
-          <a href="https://eurocook-studio-o3yc.vercel.app/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-            <img
-              src="/eurocook-logo.png"
-              alt="Eurocook Global"
-              style={{ height: 52, width: "auto", maxWidth: 220, objectFit: "contain", objectPosition: "left center" }}
-            />
-          </a>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 12px", background: isConnected ? C.greenBg : C.redBg, borderRadius: 20, border: `1px solid ${isConnected ? C.green : C.red}22` }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: isConnected ? C.green : C.red }} />
-              <span style={{ fontSize: 12, fontWeight: 500, color: isConnected ? C.green : C.red }}>
-                {isConnected ? (pageName || "Đã kết nối") : "Chưa kết nối"}
-              </span>
+        <header style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, boxShadow: "0 1px 16px rgba(0,0,0,0.06)" }}>
+          {/* Căn theo maxWidth 1200px giống main content */}
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 68, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 20 }}>
+
+            {/* Nav + trạng thái — bên trái */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 12px", background: isConnected ? C.greenBg : C.redBg, borderRadius: 20, border: `1px solid ${isConnected ? C.green : C.red}22` }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: isConnected ? C.green : C.red }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: isConnected ? C.green : C.red }}>
+                  {isConnected ? (pageName || "Đã kết nối") : "Chưa kết nối"}
+                </span>
+              </div>
+              <nav style={{ display: "flex", gap: 2 }}>
+                {TABS.map((tab) => (
+                  <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "8px 16px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: 500, background: activeTab === tab ? C.goldBg : "transparent", color: activeTab === tab ? C.goldDk : C.textSub, borderBottom: `2px solid ${activeTab === tab ? C.gold : "transparent"}` }}>{tabLabels[tab]}</button>
+                ))}
+              </nav>
             </div>
-            <nav style={{ display: "flex", gap: 2 }}>
-              {TABS.map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: "8px 16px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: 500, background: activeTab === tab ? C.goldBg : "transparent", color: activeTab === tab ? C.goldDk : C.textSub, borderBottom: `2px solid ${activeTab === tab ? C.gold : "transparent"}` }}>{tabLabels[tab]}</button>
-              ))}
-            </nav>
+
+            {/* Logo — bên phải, thẳng hàng với edge của content */}
+            <a href="https://eurocook-studio-o3yc.vercel.app/" style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}>
+              <img
+                src="/eurocook-logo.png"
+                alt="Eurocook Global"
+                style={{ height: 48, width: "auto", maxWidth: 200, objectFit: "contain" }}
+              />
+            </a>
           </div>
         </header>
 
