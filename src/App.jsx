@@ -784,7 +784,7 @@ function FBPreview({ post, productLink, imageUrl }) {
     <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.06)" }}>
       <div style={{ padding: "10px 13px", display: "flex", alignItems: "center", gap: 9, borderBottom: `1px solid ${C.border}` }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: `linear-gradient(135deg,${C.gold},#D4A85A)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🍽️</div>
-        <div><div style={{ fontSize: 13, fontWeight: 600 }}>Eurocook Vietnam</div><div style={{ color: "#9A9A9A", fontSize: 11 }}>Vừa xong · 🌐</div></div>
+        <div><div style={{ fontSize: 13, fontWeight: 600 }}>Eurocook Global</div><div style={{ color: "#9A9A9A", fontSize: 11 }}>Vừa xong · 🌐</div></div>
       </div>
       {imageUrl && <img src={imageUrl} alt="preview" style={{ width: "100%", maxHeight: 220, objectFit: "cover" }} onError={(e) => { e.target.style.display = "none"; }} />}
       <div style={{ padding: "12px 14px", fontSize: 13.5, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
